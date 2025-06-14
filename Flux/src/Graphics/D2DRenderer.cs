@@ -48,7 +48,7 @@ public class D2DRenderer : IDisposable
 
     public static void DrawAcrylicRectangle(RawRectF rect, float blurRadius, float radiusX, float radiusY)
     {
-        var defaultTintColor = new Color4(0.15f, 0.15f, 0.18f, 0.65f);
+        var defaultTintColor = new Color4(0.05f, 0.05f, 0.05f, 0.2f);
         const float defaultSaturation = 1.25f;
         const float defaultNoiseOpacity = 0.02f;
 
