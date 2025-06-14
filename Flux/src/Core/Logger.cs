@@ -18,7 +18,7 @@ public static class Logger
     {
         LogInternal(message, _log.LogInfo);
     }
-    
+
     public static void Debug(object message)
     {
         LogInternal(message, _log.LogDebug);
