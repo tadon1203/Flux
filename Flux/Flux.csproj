@@ -20,6 +20,7 @@
     <ItemGroup>
         <PackageReference Include="BepInEx.Unity.IL2CPP" Version="6.0.0-be.*" IncludeAssets="compile"/>
         <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*"/>
+        <PackageReference Include="Vortice.D3DCompiler" Version="3.2.1-beta"/>
         <PackageReference Include="Vortice.Direct2D1" Version="3.2.1-beta"/>
         <PackageReference Include="Vortice.Direct3D11" Version="3.2.1-beta"/>
     </ItemGroup>

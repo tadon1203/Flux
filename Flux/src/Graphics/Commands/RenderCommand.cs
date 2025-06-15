@@ -57,13 +57,10 @@ public class FillRectangleCommand : IRenderCommand
     }
 }
 
-public class DrawAcrylicRectangleCommand : IRenderCommand
+public class DrawBlurRectangleCommand : IRenderCommand
 {
     public RawRectF Rectangle { get; set; }
     public float BlurRadius { get; set; }
-    public Color4 TintColor { get; set; }
-    public float Saturation { get; set; }
-    public float NoiseOpacity { get; set; }
     public float RadiusX { get; set; }
     public float RadiusY { get; set; }
 
@@ -90,21 +87,10 @@ public class DrawAcrylicRectangleCommand : IRenderCommand
         if (backgroundSnapshot == null)
             return;
 
-        ID2D1Effect saturationEffect = renderer.GetSaturationEffect();
-        saturationEffect.SetInput(0, backgroundSnapshot, true);
-        saturationEffect.SetValue((int)SaturationProperties.Saturation, Saturation);
-
         ID2D1Effect blurEffect = renderer.GetGaussianBlurEffect();
-        blurEffect.SetInput(0, saturationEffect.Output, true);
+        blurEffect.SetInput(0, backgroundSnapshot, true);
         blurEffect.SetValue((int)GaussianBlurProperties.StandardDeviation, BlurRadius);
         blurEffect.SetValue((int)GaussianBlurProperties.Optimization, GaussianBlurOptimization.Speed);
-
-        ID2D1Effect floodEffect = renderer.GetFloodEffect();
-        floodEffect.SetValue((int)FloodProperties.Color, TintColor);
-
-        ID2D1Effect compositeEffect = renderer.GetCompositeEffect();
-        compositeEffect.SetInput(0, blurEffect.Output, false); // Destination
-        compositeEffect.SetInput(1, floodEffect.Output, false); // Source
 
         using ID2D1Geometry geometry = CreateGeometry(renderer);
 
@@ -114,19 +100,11 @@ public class DrawAcrylicRectangleCommand : IRenderCommand
             ExtendModeX = ExtendMode.Clamp, ExtendModeY = ExtendMode.Clamp,
             InterpolationMode = InterpolationMode.Linear
         };
-        using (ID2D1Image finalBackgroundImage = compositeEffect.Output)
+        using (ID2D1Image finalBackgroundImage = blurEffect.Output)
         using (ID2D1ImageBrush backgroundBrush = context.CreateImageBrush(finalBackgroundImage, imageBrushProperties))
         {
             backgroundBrush.Transform = Matrix3x2.CreateTranslation(inflatedRect.Left, inflatedRect.Top);
             context.FillGeometry(geometry, backgroundBrush);
-        }
-
-        ID2D1BitmapBrush noiseBrush = renderer.GetNoiseBrush();
-        if (noiseBrush != null)
-        {
-            noiseBrush.Opacity = NoiseOpacity;
-            noiseBrush.Transform = Matrix3x2.CreateTranslation(Rectangle.Left, Rectangle.Top);
-            context.FillGeometry(geometry, noiseBrush);
         }
     }
 

@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Numerics;
-using System.Runtime.InteropServices;
-using Flux.Core;
 using Flux.Graphics.Commands;
 using Vortice;
 using Vortice.DCommon;
@@ -46,18 +43,9 @@ public class D2DRenderer : IDisposable
         Instance?.EnqueueFillRectangle(rect, color);
     }
 
-    public static void DrawAcrylicRectangle(RawRectF rect, float blurRadius, float radiusX, float radiusY)
+    public static void DrawBlurRectangle(RawRectF rect, float blurRadius, float radiusX = 0, float radiusY = 0)
     {
-        var defaultTintColor = new Color4(0.05f, 0.05f, 0.05f, 0.2f);
-        const float defaultSaturation = 1.25f;
-        const float defaultNoiseOpacity = 0.02f;
-
-        Instance?.EnqueueDrawAcrylicRectangle(rect, blurRadius, defaultTintColor, defaultSaturation, defaultNoiseOpacity, radiusX, radiusY);
-    }
-
-    public static void DrawAcrylicRectangle(RawRectF rect, float blurRadius, Color4 tintColor, float saturation = 1.25f, float noiseOpacity = 0.02f, float radiusX = 0, float radiusY = 0)
-    {
-        Instance?.EnqueueDrawAcrylicRectangle(rect, blurRadius, tintColor, saturation, noiseOpacity, radiusX, radiusY);
+        Instance?.EnqueueDrawBlurRectangle(rect, blurRadius, radiusX, radiusY);
     }
 
     #endregion
@@ -67,12 +55,6 @@ public class D2DRenderer : IDisposable
     private ID2D1Bitmap1 _d2dRenderTarget;
 
     private ID2D1Effect _gaussianBlurEffect;
-    private ID2D1Effect _saturationEffect;
-    private ID2D1Effect _floodEffect;
-    private ID2D1Effect _compositeEffect;
-
-    private ID2D1Bitmap _noiseTexture;
-    private ID2D1BitmapBrush _noiseBrush;
 
     private readonly ConcurrentQueue<IRenderCommand> _renderQueue = new();
     private readonly Dictionary<Color4, ID2D1SolidColorBrush> _brushCache = new();
@@ -94,59 +76,9 @@ public class D2DRenderer : IDisposable
 
         // Create effects and resources
         _gaussianBlurEffect = new GaussianBlur(Context);
-        _saturationEffect = new Saturation(Context);
-        _floodEffect = new Flood(Context);
-        _compositeEffect = new Composite(Context);
-        CreateNoiseTexture();
 
         UpdateRenderTarget(swapChain);
         Logger.Debug("D2D Renderer initialized.");
-    }
-
-    private void CreateNoiseTexture()
-    {
-        const int noiseSize = 128;
-        int[] noisePixels = new int[noiseSize * noiseSize];
-        var random = new Random();
-
-        for (int i = 0; i < noisePixels.Length; i++)
-        {
-            // Generate subtle grayscale noise
-            byte value = (byte)random.Next(40, 60);
-            noisePixels[i] = (255 << 24) | (value << 16) | (value << 8) | value; // 0xAARRGGBB for B8G8R8A8 format
-        }
-
-        // Pin the array in memory to get a stable pointer.
-        GCHandle handle = GCHandle.Alloc(noisePixels, GCHandleType.Pinned);
-        try
-        {
-            IntPtr dataPtr = handle.AddrOfPinnedObject();
-            Vector2 dpi = D2DFactory.DesktopDpi;
-
-            // Use BitmapProperties1 as required by ID2D1DeviceContext.CreateBitmap
-            var bitmapProperties = new BitmapProperties1(
-                new PixelFormat(Format.B8G8R8A8_UNorm, AlphaMode.Ignore),
-                dpi.X, dpi.Y,
-                BitmapOptions.None
-            );
-
-            var size = new Size(noiseSize, noiseSize);
-            int pitch = noiseSize * 4; // bytes per row
-
-            _noiseTexture = Context.CreateBitmap(size, dataPtr, pitch, bitmapProperties);
-        }
-        finally
-        {
-            handle.Free();
-        }
-
-        var brushProperties = new BitmapBrushProperties
-        {
-            ExtendModeX = ExtendMode.Wrap,
-            ExtendModeY = ExtendMode.Wrap,
-            InterpolationMode = BitmapInterpolationMode.NearestNeighbor
-        };
-        _noiseBrush = Context.CreateBitmapBrush(_noiseTexture, brushProperties);
     }
 
     private void UpdateRenderTarget(IDXGISwapChain swapChain)
@@ -186,15 +118,12 @@ public class D2DRenderer : IDisposable
         Enqueue(new FillRectangleCommand { Rectangle = rect, Color = color });
     }
 
-    private void EnqueueDrawAcrylicRectangle(RawRectF rect, float blurRadius, Color4 tintColor, float saturation, float noiseOpacity, float radiusX, float radiusY)
+    private void EnqueueDrawBlurRectangle(RawRectF rect, float blurRadius, float radiusX, float radiusY)
     {
-        Enqueue(new DrawAcrylicRectangleCommand
+        Enqueue(new DrawBlurRectangleCommand
         {
             Rectangle = rect,
             BlurRadius = blurRadius,
-            TintColor = tintColor,
-            Saturation = saturation,
-            NoiseOpacity = noiseOpacity,
             RadiusX = radiusX,
             RadiusY = radiusY
         });
@@ -255,26 +184,6 @@ public class D2DRenderer : IDisposable
         return _gaussianBlurEffect;
     }
 
-    public ID2D1Effect GetSaturationEffect()
-    {
-        return _saturationEffect;
-    }
-
-    public ID2D1Effect GetFloodEffect()
-    {
-        return _floodEffect;
-    }
-
-    public ID2D1Effect GetCompositeEffect()
-    {
-        return _compositeEffect;
-    }
-
-    public ID2D1BitmapBrush GetNoiseBrush()
-    {
-        return _noiseBrush;
-    }
-
     /// <summary>
     ///     Disposes all managed and unmanaged D2D resources.
     /// </summary>
@@ -294,12 +203,6 @@ public class D2DRenderer : IDisposable
 
         _textFormatCache.Clear();
 
-        _noiseBrush?.Dispose();
-        _noiseTexture?.Dispose();
-
-        _compositeEffect?.Dispose();
-        _floodEffect?.Dispose();
-        _saturationEffect?.Dispose();
         _gaussianBlurEffect?.Dispose();
 
         _d2dRenderTarget?.Dispose();
@@ -308,12 +211,6 @@ public class D2DRenderer : IDisposable
         _dwriteFactory?.Dispose();
         D2DFactory?.Dispose();
 
-        _noiseBrush = null;
-        _noiseTexture = null;
-
-        _compositeEffect = null;
-        _floodEffect = null;
-        _saturationEffect = null;
         _gaussianBlurEffect = null;
 
         _d2dRenderTarget = null;

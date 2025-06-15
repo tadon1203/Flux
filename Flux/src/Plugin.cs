@@ -1,7 +1,6 @@
 ﻿using System;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
-using Flux.Core;
 using Flux.Graphics;
 
 namespace Flux;
