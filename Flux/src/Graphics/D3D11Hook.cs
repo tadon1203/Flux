@@ -27,18 +27,19 @@ public static class D3D11Hook
 
     private static IntPtr _swapChainVTable;
     private static bool _isRendererInitialized;
+    private static bool _wasResized;
 
     public static bool Hook()
     {
-        IntPtr hwnd = IntPtr.Zero;
+        IntPtr hWnd = IntPtr.Zero;
         IDXGISwapChain swapChain = null;
         ID3D11Device device = null;
         ID3D11DeviceContext context = null;
 
         try
         {
-            hwnd = CreateDummyWindow();
-            if (hwnd == IntPtr.Zero)
+            hWnd = CreateDummyWindow();
+            if (hWnd == IntPtr.Zero)
             {
                 Logger.Error($"Failed to create dummy window. Error: {Marshal.GetLastWin32Error()}");
                 return false;
@@ -49,12 +50,12 @@ public static class D3D11Hook
                 BufferCount = 1,
                 BufferDescription = new ModeDescription(100, 100, new Rational(60, 1), Format.R8G8B8A8_UNorm),
                 BufferUsage = Usage.RenderTargetOutput,
-                OutputWindow = hwnd,
+                OutputWindow = hWnd,
                 SampleDescription = new SampleDescription(1, 0),
                 Windowed = true
             };
 
-            Result result = D3D11.D3D11CreateDeviceAndSwapChain(null, DriverType.Hardware, DeviceCreationFlags.None, null, swapChainDescription, out swapChain, out device, out _, out context);
+            Result result = D3D11.D3D11CreateDeviceAndSwapChain(null, DriverType.Hardware, DeviceCreationFlags.None, null!, swapChainDescription, out swapChain, out device, out _, out context);
             if (result.Failure)
             {
                 Logger.Error($"D3D11CreateDeviceAndSwapChain failed: {result.Description}");
@@ -77,8 +78,8 @@ public static class D3D11Hook
             context?.Dispose();
             device?.Dispose();
             swapChain?.Dispose();
-            if (hwnd != IntPtr.Zero)
-                DestroyWindow(hwnd);
+            if (hWnd != IntPtr.Zero)
+                DestroyWindow(hWnd);
         }
     }
 
@@ -123,7 +124,16 @@ public static class D3D11Hook
                 D2DRenderer.Instance = new D2DRenderer();
                 D2DRenderer.Instance.Initialize(swapChain);
                 _isRendererInitialized = true;
-                Logger.Info("D2D Renderer initialized in Present.");
+                
+                if (_wasResized)
+                {
+                    Logger.Info("D2D Renderer re-initialized after resize.");
+                    _wasResized = false;
+                }
+                else
+                {
+                    Logger.Info("D2D Renderer initialized.");
+                }
             }
             else
             {
@@ -147,6 +157,7 @@ public static class D3D11Hook
         Logger.Debug("ResizeBuffers called. Disposing old D2D resources.");
         D2DRenderer.Instance?.Dispose();
         _isRendererInitialized = false;
+        _wasResized = true;
 
         Result result = _originalResizeBuffers(swapChainPtr, bufferCount, width, height, newFormat, swapChainFlags);
         if (!result.Success)
