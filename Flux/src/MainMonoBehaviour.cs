@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using Flux.Features;
-using Flux.Graphics;
-using Flux.Graphics.Commands;
+﻿using Flux.Features;
 using UnityEngine;
 
 namespace Flux;
@@ -15,9 +12,9 @@ public class MainMonoBehaviour : MonoBehaviour
 
         FeatureManager.Update();
 
-        var commands = new List<IRenderCommand>();
-        FeatureManager.Render(commands);
+        var context = new RenderContext();
+        FeatureManager.Render(context);
 
-        D2DRenderer.Instance.QueueCommands(commands);
+        D2DRenderer.Instance.QueueCommands(context.Commands);
     }
 }

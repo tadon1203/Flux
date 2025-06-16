@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using Flux.Graphics.Commands;
 
 namespace Flux.Features;
 
 /// <summary>
-///     Manages all features, including their initialization and lifecycle.
+/// Manages all features, including their initialization and lifecycle.
 /// </summary>
 public static class FeatureManager
 {
@@ -24,7 +23,6 @@ public static class FeatureManager
             Logger.Warning($"Feature with name '{feature.Name}' is already registered.");
             return;
         }
-
         Features.Add(feature);
     }
 
@@ -33,21 +31,27 @@ public static class FeatureManager
         return Features.OfType<T>().FirstOrDefault();
     }
 
+
+
     public static void Update()
     {
-        foreach (Feature feature in Features)
+        foreach (var feature in Features)
         {
             if (feature.IsEnabled)
+            {
                 feature.OnUpdate();
+            }
         }
     }
 
-    public static void Render(List<IRenderCommand> commands)
+    public static void Render(IRenderContext context)
     {
-        foreach (Feature feature in Features)
+        foreach (var feature in Features)
         {
             if (feature.IsEnabled)
-                feature.OnRender(commands);
+            {
+                feature.OnRender(context);
+            }
         }
     }
 }
