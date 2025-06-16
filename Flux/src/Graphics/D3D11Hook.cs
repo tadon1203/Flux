@@ -82,6 +82,23 @@ public static class D3D11Hook
                 DestroyWindow(hWnd);
         }
     }
+    
+    private static IntPtr CreateDummyWindow()
+    {
+        const string className = "FluxDummyWindow";
+        var wndClass = new WNDCLASS
+        {
+            lpfnWndProc = DefWindowProc,
+            lpszClassName = className,
+            hInstance = GetModuleHandle(null)
+        };
+
+        // 1410: ERROR_CLASS_ALREADY_EXISTS (safe to ignore)
+        if (RegisterClass(ref wndClass) == 0 && Marshal.GetLastWin32Error() != 1410)
+            return IntPtr.Zero;
+
+        return CreateWindowEx(0, className, "Dummy Window", 0, 0, 0, 1, 1, IntPtr.Zero, IntPtr.Zero, wndClass.hInstance, IntPtr.Zero);
+    }
 
     private static bool InstallVTableHooks(IDXGISwapChain swapChain)
     {
@@ -164,22 +181,5 @@ public static class D3D11Hook
             Logger.Warning($"Original ResizeBuffers failed with result: {result.Description}");
 
         return result;
-    }
-
-    private static IntPtr CreateDummyWindow()
-    {
-        const string className = "FluxDummyWindow";
-        var wndClass = new WNDCLASS
-        {
-            lpfnWndProc = DefWindowProc,
-            lpszClassName = className,
-            hInstance = GetModuleHandle(null)
-        };
-
-        // 1410: ERROR_CLASS_ALREADY_EXISTS (safe to ignore)
-        if (RegisterClass(ref wndClass) == 0 && Marshal.GetLastWin32Error() != 1410)
-            return IntPtr.Zero;
-
-        return CreateWindowEx(0, className, "Dummy Window", 0, 0, 0, 1, 1, IntPtr.Zero, IntPtr.Zero, wndClass.hInstance, IntPtr.Zero);
     }
 }
