@@ -134,7 +134,7 @@ public static class D3D11Hook
 
     private static Result HookedPresent(IntPtr swapChainPtr, int syncInterval, PresentFlags flags)
     {
-        // Create a wrapper for the swap chain, but DO NOT use 'using' as we don't own this object.
+        // DO NOT use 'using' as we don't own this object.
         var swapChain = new IDXGISwapChain(swapChainPtr);
 
         try
@@ -145,6 +145,10 @@ public static class D3D11Hook
                 D2DRenderer.Instance.Initialize(swapChain);
                 _isRendererInitialized = true;
                 Logger.Info("D2D Renderer initialized in Present.");
+            }
+            else
+            {
+                D2DRenderer.Instance?.UpdateRenderTarget(swapChain);
             }
 
             D2DRenderer.Instance?.Render();
@@ -162,35 +166,13 @@ public static class D3D11Hook
 
     private static Result HookedResizeBuffers(IntPtr swapChainPtr, int bufferCount, int width, int height, Format newFormat, SwapChainFlags swapChainFlags)
     {
-        // Dispose existing renderer resources before the original function resizes the buffers.
         Logger.Debug("ResizeBuffers called. Disposing old D2D resources.");
         D2DRenderer.Instance?.Dispose();
         _isRendererInitialized = false;
-
-        // Call the original ResizeBuffers function.
+        
         Result result = _originalResizeBuffers(swapChainPtr, bufferCount, width, height, newFormat, swapChainFlags);
-
-        // After resizing, if successful, re-initialize the renderer immediately.
-        if (result.Success)
-        {
-            Logger.Debug("ResizeBuffers successful. Re-initializing D2D resources.");
-            try
-            {
-                // Create a wrapper for the swap chain, but DO NOT use 'using' as we don't own this object.
-                var swapChain = new IDXGISwapChain(swapChainPtr);
-                D2DRenderer.Instance = new D2DRenderer();
-                D2DRenderer.Instance.Initialize(swapChain);
-                _isRendererInitialized = true;
-                Logger.Info("D2D Renderer re-initialized in ResizeBuffers.");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error re-initializing renderer after ResizeBuffers: {ex}");
-                D2DRenderer.Instance?.Dispose();
-                _isRendererInitialized = false;
-            }
-        }
-        else
+        
+        if (!result.Success)
         {
             Logger.Warning($"Original ResizeBuffers failed with result: {result.Description}");
         }

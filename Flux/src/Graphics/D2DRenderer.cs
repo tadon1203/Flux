@@ -27,20 +27,22 @@ public class D2DRenderer : IDisposable
     ///     Gets or sets the singleton instance of the D2DRenderer.
     /// </summary>
     public static D2DRenderer Instance { get; set; }
+    
+    private static readonly ConcurrentQueue<IRenderCommand> _commandQueue = new();
 
     public static void DrawText(string text, string fontFamily, float fontSize, Vector2 position, Color4 color)
     {
-        Instance?.EnqueueDrawText(text, fontFamily, fontSize, position, color);
+        _commandQueue.Enqueue(new DrawTextCommand { Text = text, FontFamily = fontFamily, FontSize = fontSize, Position = position, Color = color });
     }
 
     public static void DrawRectangle(RawRectF rect, Color4 color, float strokeWidth = 1.0f)
     {
-        Instance?.EnqueueDrawRectangle(rect, color, strokeWidth);
+        _commandQueue.Enqueue(new DrawRectangleCommand { Rectangle = rect, Color = color, StrokeWidth = strokeWidth });
     }
 
     public static void FillRectangle(RawRectF rect, Color4 color)
     {
-        Instance?.EnqueueFillRectangle(rect, color);
+        _commandQueue.Enqueue(new FillRectangleCommand { Rectangle = rect, Color = color });
     }
 
     /*
@@ -48,7 +50,14 @@ public class D2DRenderer : IDisposable
      * This error can occur in environments like Proton where CLSID_D2D1GaussianBlur might not be supported.
     public static void DrawBlurRectangle(RawRectF rect, float blurRadius, float radiusX = 0, float radiusY = 0)
     {
-        Instance?.EnqueueDrawBlurRectangle(rect, blurRadius, radiusX, radiusY);
+        // If re-enabling, change this to enqueue to the static _commandQueue as well.
+        _commandQueue.Enqueue(new DrawBlurRectangleCommand
+        {
+            Rectangle = rect,
+            BlurRadius = blurRadius,
+            RadiusX = radiusX,
+            RadiusY = radiusY
+        });
     }
     */
 
@@ -60,7 +69,6 @@ public class D2DRenderer : IDisposable
 
     // private ID2D1Effect _gaussianBlurEffect; // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
 
-    private readonly ConcurrentQueue<IRenderCommand> _renderQueue = new();
     private readonly Dictionary<Color4, ID2D1SolidColorBrush> _brushCache = new();
     private readonly Dictionary<string, IDWriteTextFormat> _textFormatCache = new();
 
@@ -85,9 +93,16 @@ public class D2DRenderer : IDisposable
         Logger.Debug("D2D Renderer initialized.");
     }
 
-    private void UpdateRenderTarget(IDXGISwapChain swapChain)
+    /// <summary>
+    ///     Re-creates the D2D render target from the swap chain's current back buffer.
+    ///     This must be called before rendering each frame to handle swapped buffers and prevent flickering.
+    /// </summary>
+    public void UpdateRenderTarget(IDXGISwapChain swapChain)
     {
+        // Release the reference to the old render target bitmap before disposing it.
+        Context.Target = null;
         _d2dRenderTarget?.Dispose();
+
         Vector2 dpi = D2DFactory.DesktopDpi;
         var bitmapProperties = new BitmapProperties1(
             new PixelFormat(Format.R8G8B8A8_UNorm, AlphaMode.Premultiplied),
@@ -100,45 +115,6 @@ public class D2DRenderer : IDisposable
         Context.Target = _d2dRenderTarget;
     }
 
-    private void Enqueue(IRenderCommand command)
-    {
-        _renderQueue.Enqueue(command);
-    }
-
-    #region Instance Drawing Helpers (private)
-
-    private void EnqueueDrawText(string text, string fontFamily, float fontSize, Vector2 position, Color4 color)
-    {
-        Enqueue(new DrawTextCommand { Text = text, FontFamily = fontFamily, FontSize = fontSize, Position = position, Color = color });
-    }
-
-    private void EnqueueDrawRectangle(RawRectF rect, Color4 color, float strokeWidth = 1.0f)
-    {
-        Enqueue(new DrawRectangleCommand { Rectangle = rect, Color = color, StrokeWidth = strokeWidth });
-    }
-
-    private void EnqueueFillRectangle(RawRectF rect, Color4 color)
-    {
-        Enqueue(new FillRectangleCommand { Rectangle = rect, Color = color });
-    }
-
-    /*
-     * Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED.
-     * This error can occur in environments like Proton where CLSID_D2D1GaussianBlur might not be supported.
-    private void EnqueueDrawBlurRectangle(RawRectF rect, float blurRadius, float radiusX, float radiusY)
-    {
-        Enqueue(new DrawBlurRectangleCommand
-        {
-            Rectangle = rect,
-            BlurRadius = blurRadius,
-            RadiusX = radiusX,
-            RadiusY = radiusY
-        });
-    }
-    */
-
-    #endregion
-
     /// <summary>
     ///     Executes all queued render commands.
     /// </summary>
@@ -148,7 +124,8 @@ public class D2DRenderer : IDisposable
             return;
         Context.BeginDraw();
         Context.Transform = Matrix3x2.Identity;
-        while (_renderQueue.TryDequeue(out IRenderCommand command))
+        
+        while (_commandQueue.TryDequeue(out IRenderCommand command))
         {
             try
             {
