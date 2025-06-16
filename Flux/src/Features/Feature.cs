@@ -21,7 +21,7 @@ public abstract class Feature
     public bool IsEnabled
     {
         get => _isEnabled;
-        set
+        private set
         {
             if (_isEnabled == value)
                 return;
