@@ -57,6 +57,9 @@ public class FillRectangleCommand : IRenderCommand
     }
 }
 
+/*
+ * Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED.
+ * This error can occur in environments like Proton where CLSID_D2D1GaussianBlur might not be supported.
 public class DrawBlurRectangleCommand : IRenderCommand
 {
     public RawRectF Rectangle { get; set; }
@@ -132,3 +135,4 @@ public class DrawBlurRectangleCommand : IRenderCommand
         return renderer.D2DFactory.CreateRectangleGeometry(Rectangle);
     }
 }
+*/

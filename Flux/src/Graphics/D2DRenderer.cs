@@ -6,7 +6,7 @@ using Flux.Graphics.Commands;
 using Vortice;
 using Vortice.DCommon;
 using Vortice.Direct2D1;
-using Vortice.Direct2D1.Effects;
+// using Vortice.Direct2D1.Effects; // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
 using Vortice.Direct3D11;
 using Vortice.DirectWrite;
 using Vortice.DXGI;
@@ -43,10 +43,14 @@ public class D2DRenderer : IDisposable
         Instance?.EnqueueFillRectangle(rect, color);
     }
 
+    /*
+     * Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED.
+     * This error can occur in environments like Proton where CLSID_D2D1GaussianBlur might not be supported.
     public static void DrawBlurRectangle(RawRectF rect, float blurRadius, float radiusX = 0, float radiusY = 0)
     {
         Instance?.EnqueueDrawBlurRectangle(rect, blurRadius, radiusX, radiusY);
     }
+    */
 
     #endregion
 
@@ -54,7 +58,7 @@ public class D2DRenderer : IDisposable
     private ID2D1Device _d2dDevice;
     private ID2D1Bitmap1 _d2dRenderTarget;
 
-    private ID2D1Effect _gaussianBlurEffect;
+    // private ID2D1Effect _gaussianBlurEffect; // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
 
     private readonly ConcurrentQueue<IRenderCommand> _renderQueue = new();
     private readonly Dictionary<Color4, ID2D1SolidColorBrush> _brushCache = new();
@@ -75,7 +79,7 @@ public class D2DRenderer : IDisposable
         Context = _d2dDevice.CreateDeviceContext();
 
         // Create effects and resources
-        _gaussianBlurEffect = new GaussianBlur(Context);
+        // _gaussianBlurEffect = new GaussianBlur(Context); // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
 
         UpdateRenderTarget(swapChain);
         Logger.Debug("D2D Renderer initialized.");
@@ -118,6 +122,9 @@ public class D2DRenderer : IDisposable
         Enqueue(new FillRectangleCommand { Rectangle = rect, Color = color });
     }
 
+    /*
+     * Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED.
+     * This error can occur in environments like Proton where CLSID_D2D1GaussianBlur might not be supported.
     private void EnqueueDrawBlurRectangle(RawRectF rect, float blurRadius, float radiusX, float radiusY)
     {
         Enqueue(new DrawBlurRectangleCommand
@@ -128,6 +135,7 @@ public class D2DRenderer : IDisposable
             RadiusY = radiusY
         });
     }
+    */
 
     #endregion
 
@@ -179,10 +187,14 @@ public class D2DRenderer : IDisposable
         return _d2dRenderTarget;
     }
 
+    /*
+     * Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED.
+     * This error can occur in environments like Proton where CLSID_D2D1GaussianBlur might not be supported.
     public ID2D1Effect GetGaussianBlurEffect()
     {
         return _gaussianBlurEffect;
     }
+    */
 
     /// <summary>
     ///     Disposes all managed and unmanaged D2D resources.
@@ -203,7 +215,7 @@ public class D2DRenderer : IDisposable
 
         _textFormatCache.Clear();
 
-        _gaussianBlurEffect?.Dispose();
+        // _gaussianBlurEffect?.Dispose(); // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
 
         _d2dRenderTarget?.Dispose();
         Context?.Dispose();
@@ -211,7 +223,7 @@ public class D2DRenderer : IDisposable
         _dwriteFactory?.Dispose();
         D2DFactory?.Dispose();
 
-        _gaussianBlurEffect = null;
+        // _gaussianBlurEffect = null; // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
 
         _d2dRenderTarget = null;
         Context = null;
