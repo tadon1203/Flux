@@ -7,7 +7,7 @@ using Vortice.Mathematics;
 namespace Flux.Graphics;
 
 /// <summary>
-/// An implementation of IRenderContext that builds a list of render commands.
+///     An implementation of IRenderContext that builds a list of render commands.
 /// </summary>
 public class RenderContext : IRenderContext
 {
@@ -15,12 +15,13 @@ public class RenderContext : IRenderContext
 
     public IReadOnlyList<IRenderCommand> Commands => _commands;
 
-    public void DrawText(string text, Vector2 position, Color4 color, float fontSize = 12f, string fontFamily = "Arial")
+    public void DrawText(string text, Vector2 position, Color4 color, float fontSize = 12f, FontFamily font = FontFamily.Inter, FontWeight weight = FontWeight.Regular)
     {
         _commands.Add(new DrawTextCommand
         {
             Text = text,
-            FontFamily = fontFamily,
+            Font = font,
+            Weight = weight,
             FontSize = fontSize,
             Position = position,
             Color = color

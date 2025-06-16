@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Numerics;
 using Flux.Graphics.Commands;
+using Flux.Graphics.Font;
 using Vortice.DCommon;
 using Vortice.Direct2D1;
 using Vortice.Direct3D11;
@@ -25,6 +26,7 @@ public class D2DRenderer : IDisposable
     private IDWriteFactory _dwriteFactory;
     private ID2D1Device _d2dDevice;
     private ID2D1Bitmap1 _d2dRenderTarget;
+    private IDWriteFontCollection _customFontCollection;
 
     private readonly Dictionary<Color4, ID2D1SolidColorBrush> _brushCache = new();
     private readonly Dictionary<string, IDWriteTextFormat> _textFormatCache = new();
@@ -44,6 +46,9 @@ public class D2DRenderer : IDisposable
     {
         D2DFactory = D2D1.D2D1CreateFactory<ID2D1Factory1>();
         _dwriteFactory = DWrite.DWriteCreateFactory<IDWriteFactory>();
+
+        _customFontCollection = FontManager.Initialize(_dwriteFactory);
+
         using var dxgiDevice = swapChain.GetDevice<IDXGIDevice>();
         _d2dDevice = D2DFactory.CreateDevice(dxgiDevice);
         Context = _d2dDevice.CreateDeviceContext();
@@ -104,12 +109,15 @@ public class D2DRenderer : IDisposable
         return brush;
     }
 
-    public IDWriteTextFormat GetOrCreateTextFormat(string fontFamily, float fontSize)
+    public IDWriteTextFormat GetOrCreateTextFormat(FontFamily font, FontWeight weight, float fontSize)
     {
-        string key = $"{fontFamily}:{fontSize}";
+        string fontFamilyName = FontManager.GetFontFamilyName(font);
+        string key = $"{fontFamilyName}:{weight}:{fontSize}";
         if (_textFormatCache.TryGetValue(key, out IDWriteTextFormat format))
             return format;
-        format = _dwriteFactory.CreateTextFormat(fontFamily, FontWeight.Normal, FontStyle.Normal, FontStretch.Normal, fontSize);
+
+        Vortice.DirectWrite.FontWeight dwriteFontWeight = FontWeightConverter.ToDirectWrite(weight);
+        format = _dwriteFactory.CreateTextFormat(fontFamilyName, _customFontCollection, dwriteFontWeight, FontStyle.Normal, FontStretch.Normal, fontSize);
         _textFormatCache[key] = format;
         return format;
     }
@@ -117,6 +125,9 @@ public class D2DRenderer : IDisposable
     public void Dispose()
     {
         Logger.Debug("Disposing D2D Renderer resources.");
+
+        FontManager.Dispose();
+
         foreach (ID2D1SolidColorBrush brush in _brushCache.Values)
         {
             brush.Dispose();
@@ -136,12 +147,14 @@ public class D2DRenderer : IDisposable
             _commandsToRender.Clear();
         }
 
+        _customFontCollection?.Dispose();
         _d2dRenderTarget?.Dispose();
         Context?.Dispose();
         _d2dDevice?.Dispose();
         _dwriteFactory?.Dispose();
         D2DFactory?.Dispose();
 
+        _customFontCollection = null;
         _d2dRenderTarget = null;
         Context = null;
         _d2dDevice = null;
