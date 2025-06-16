@@ -1,6 +1,7 @@
 ﻿using System;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
+using Flux.Features;
 using Flux.Graphics;
 
 namespace Flux;
@@ -20,6 +21,8 @@ public class Plugin : BasePlugin
 
             if (!D3D11Hook.Hook())
                 return;
+
+            FeatureManager.Initialize();
 
             AddComponent<MainMonoBehaviour>();
         }

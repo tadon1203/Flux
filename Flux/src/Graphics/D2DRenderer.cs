@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Numerics;
 using Flux.Graphics.Commands;
-using Vortice;
 using Vortice.DCommon;
 using Vortice.Direct2D1;
-// using Vortice.Direct2D1.Effects; // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
 using Vortice.Direct3D11;
 using Vortice.DirectWrite;
 using Vortice.DXGI;
@@ -16,58 +13,18 @@ using AlphaMode = Vortice.DCommon.AlphaMode;
 namespace Flux.Graphics;
 
 /// <summary>
-///     Manages Direct2D rendering, resources, and command queuing thread-safely.
-///     Provides a static API for drawing commands.
+///     Manages Direct2D rendering, resources, and command queuing.
 /// </summary>
 public class D2DRenderer : IDisposable
 {
-    #region Singleton and Static API
-
-    /// <summary>
-    ///     Gets or sets the singleton instance of the D2DRenderer.
-    /// </summary>
     public static D2DRenderer Instance { get; set; }
-    
-    private static readonly ConcurrentQueue<IRenderCommand> _commandQueue = new();
 
-    public static void DrawText(string text, string fontFamily, float fontSize, Vector2 position, Color4 color)
-    {
-        _commandQueue.Enqueue(new DrawTextCommand { Text = text, FontFamily = fontFamily, FontSize = fontSize, Position = position, Color = color });
-    }
-
-    public static void DrawRectangle(RawRectF rect, Color4 color, float strokeWidth = 1.0f)
-    {
-        _commandQueue.Enqueue(new DrawRectangleCommand { Rectangle = rect, Color = color, StrokeWidth = strokeWidth });
-    }
-
-    public static void FillRectangle(RawRectF rect, Color4 color)
-    {
-        _commandQueue.Enqueue(new FillRectangleCommand { Rectangle = rect, Color = color });
-    }
-
-    /*
-     * Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED.
-     * This error can occur in environments like Proton where CLSID_D2D1GaussianBlur might not be supported.
-    public static void DrawBlurRectangle(RawRectF rect, float blurRadius, float radiusX = 0, float radiusY = 0)
-    {
-        // If re-enabling, change this to enqueue to the static _commandQueue as well.
-        _commandQueue.Enqueue(new DrawBlurRectangleCommand
-        {
-            Rectangle = rect,
-            BlurRadius = blurRadius,
-            RadiusX = radiusX,
-            RadiusY = radiusY
-        });
-    }
-    */
-
-    #endregion
+    private List<IRenderCommand> _commandsToRender = new();
+    private readonly object _commandLock = new();
 
     private IDWriteFactory _dwriteFactory;
     private ID2D1Device _d2dDevice;
     private ID2D1Bitmap1 _d2dRenderTarget;
-
-    // private ID2D1Effect _gaussianBlurEffect; // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
 
     private readonly Dictionary<Color4, ID2D1SolidColorBrush> _brushCache = new();
     private readonly Dictionary<string, IDWriteTextFormat> _textFormatCache = new();
@@ -75,9 +32,14 @@ public class D2DRenderer : IDisposable
     public ID2D1DeviceContext Context { get; private set; }
     public ID2D1Factory1 D2DFactory { get; private set; }
 
-    /// <summary>
-    ///     Initializes the D2D renderer and its resources using the provided swap chain.
-    /// </summary>
+    public void QueueCommands(IEnumerable<IRenderCommand> commands)
+    {
+        lock (_commandLock)
+        {
+            _commandsToRender = new List<IRenderCommand>(commands);
+        }
+    }
+
     public void Initialize(IDXGISwapChain swapChain)
     {
         D2DFactory = D2D1.D2D1CreateFactory<ID2D1Factory1>();
@@ -86,20 +48,12 @@ public class D2DRenderer : IDisposable
         _d2dDevice = D2DFactory.CreateDevice(dxgiDevice);
         Context = _d2dDevice.CreateDeviceContext();
 
-        // Create effects and resources
-        // _gaussianBlurEffect = new GaussianBlur(Context); // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
-
         UpdateRenderTarget(swapChain);
         Logger.Debug("D2D Renderer initialized.");
     }
 
-    /// <summary>
-    ///     Re-creates the D2D render target from the swap chain's current back buffer.
-    ///     This must be called before rendering each frame to handle swapped buffers and prevent flickering.
-    /// </summary>
     public void UpdateRenderTarget(IDXGISwapChain swapChain)
     {
-        // Release the reference to the old render target bitmap before disposing it.
         Context.Target = null;
         _d2dRenderTarget?.Dispose();
 
@@ -115,25 +69,26 @@ public class D2DRenderer : IDisposable
         Context.Target = _d2dRenderTarget;
     }
 
-    /// <summary>
-    ///     Executes all queued render commands.
-    /// </summary>
     public void Render()
     {
         if (Context == null)
             return;
+
         Context.BeginDraw();
         Context.Transform = Matrix3x2.Identity;
-        
-        while (_commandQueue.TryDequeue(out IRenderCommand command))
+
+        lock (_commandLock)
         {
-            try
+            foreach (IRenderCommand command in _commandsToRender)
             {
-                command.Execute(this);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error executing render command: {ex.Message}");
+                try
+                {
+                    command.Execute(this);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Error executing render command: {ex.Message}");
+                }
             }
         }
 
@@ -159,23 +114,6 @@ public class D2DRenderer : IDisposable
         return format;
     }
 
-    public ID2D1Bitmap1 GetRenderTargetBitmap()
-    {
-        return _d2dRenderTarget;
-    }
-
-    /*
-     * Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED.
-     * This error can occur in environments like Proton where CLSID_D2D1GaussianBlur might not be supported.
-    public ID2D1Effect GetGaussianBlurEffect()
-    {
-        return _gaussianBlurEffect;
-    }
-    */
-
-    /// <summary>
-    ///     Disposes all managed and unmanaged D2D resources.
-    /// </summary>
     public void Dispose()
     {
         Logger.Debug("Disposing D2D Renderer resources.");
@@ -185,6 +123,7 @@ public class D2DRenderer : IDisposable
         }
 
         _brushCache.Clear();
+
         foreach (IDWriteTextFormat format in _textFormatCache.Values)
         {
             format.Dispose();
@@ -192,15 +131,16 @@ public class D2DRenderer : IDisposable
 
         _textFormatCache.Clear();
 
-        // _gaussianBlurEffect?.Dispose(); // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
+        lock (_commandLock)
+        {
+            _commandsToRender.Clear();
+        }
 
         _d2dRenderTarget?.Dispose();
         Context?.Dispose();
         _d2dDevice?.Dispose();
         _dwriteFactory?.Dispose();
         D2DFactory?.Dispose();
-
-        // _gaussianBlurEffect = null; // Commented out to avoid D2DERR_EFFECT_IS_NOT_REGISTERED on Proton.
 
         _d2dRenderTarget = null;
         Context = null;

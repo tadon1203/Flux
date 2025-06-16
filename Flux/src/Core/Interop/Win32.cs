@@ -8,8 +8,6 @@ namespace Flux.Core.Interop;
 /// </summary>
 public static class Win32
 {
-    #region Enums and Structs
-
     [Flags]
     public enum MemoryProtection : uint
     {
@@ -31,15 +29,7 @@ public static class Win32
         public string lpszClassName;
     }
 
-    #endregion
-
-    #region Delegates
-
     public delegate IntPtr WNDPROC(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-
-    #endregion
-
-    #region DllImports
 
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool VirtualProtect(IntPtr lpAddress, UIntPtr dwSize, MemoryProtection flNewProtect, out MemoryProtection lpflOldProtect);
@@ -62,6 +52,4 @@ public static class Win32
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool DestroyWindow(IntPtr hWnd);
-
-    #endregion
 }
