@@ -1,4 +1,5 @@
 using Flux.Graphics;
+using UnityEngine;
 
 namespace Flux.Features;
 
@@ -10,6 +11,8 @@ public abstract class Feature
     private bool _isEnabled;
 
     public string Name { get; }
+    public FeatureCategory Category { get; }
+    public KeyCode ToggleKey { get; set; }
 
     /// <summary>
     ///     Gets or sets a value indicating whether the feature is enabled.
@@ -30,9 +33,37 @@ public abstract class Feature
         }
     }
 
-    protected Feature(string name)
+    protected Feature(string name, FeatureCategory category)
     {
         Name = name;
+        Category = category;
+    }
+    
+    /// <summary>
+    /// Enables the feature.
+    /// </summary>
+    public void Enable() => IsEnabled = true;
+
+    /// <summary>
+    /// Disables the feature.
+    /// </summary>
+    public void Disable() => IsEnabled = false;
+    
+    /// <summary>
+    /// Toggles the enabled state of the feature.
+    /// </summary>
+    public void Toggle() => IsEnabled = !IsEnabled;
+    
+    /// <summary>
+    /// Checks if the toggle key was pressed and updates the feature's state.
+    /// This is called automatically by the FeatureManager.
+    /// </summary>
+    public void CheckToggleKey()
+    {
+        if (ToggleKey != KeyCode.None && Input.GetKeyDown(ToggleKey))
+        {
+            Toggle();
+        }
     }
 
     /// <summary>

@@ -1,8 +1,6 @@
 ﻿using Flux.Features;
 using Flux.Graphics;
 using UnityEngine;
-using Vortice.Mathematics;
-using Vector2 = System.Numerics.Vector2;
 
 namespace Flux;
 

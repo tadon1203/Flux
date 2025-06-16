@@ -82,7 +82,7 @@ public static class D3D11Hook
                 DestroyWindow(hWnd);
         }
     }
-    
+
     private static IntPtr CreateDummyWindow()
     {
         const string className = "FluxDummyWindow";
@@ -141,7 +141,7 @@ public static class D3D11Hook
                 D2DRenderer.Instance = new D2DRenderer();
                 D2DRenderer.Instance.Initialize(swapChain);
                 _isRendererInitialized = true;
-                
+
                 if (_wasResized)
                 {
                     Logger.Info("D2D Renderer re-initialized after resize.");

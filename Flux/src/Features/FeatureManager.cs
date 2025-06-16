@@ -31,11 +31,25 @@ public static class FeatureManager
     {
         return Features.OfType<T>().FirstOrDefault();
     }
-    
+
+    /// <summary>
+    ///     Gets all registered features for a given category.
+    /// </summary>
+    /// <param name="category">The feature category.</param>
+    /// <returns>An enumerable of features in the specified category.</returns>
+    public static IEnumerable<Feature> GetFeaturesByCategory(FeatureCategory category)
+    {
+        return Features.Where(f => f.Category == category);
+    }
+
     public static void Update()
     {
         foreach (Feature feature in Features)
         {
+            // Check for toggle key presses regardless of the feature's current state.
+            feature.CheckToggleKey();
+
+            // Only call OnUpdate if the feature is enabled.
             if (feature.IsEnabled)
                 feature.OnUpdate();
         }
